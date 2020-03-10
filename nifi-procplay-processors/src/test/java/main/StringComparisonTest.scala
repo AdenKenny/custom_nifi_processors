@@ -7,42 +7,151 @@ import org.apache.nifi.util.TestRunners
 import org.junit.Before
 import org.junit.Test
 
+import scala.collection.JavaConverters._
+import scala.collection.mutable
+
 class StringComparisonTest {
-	/*
-	 * Licensed to the Apache Software Foundation (ASF) under one or more
-	 * contributor license agreements.  See the NOTICE file distributed with
-	 * this work for additional information regarding copyright ownership.
-	 * The ASF licenses this file to You under the Apache License, Version 2.0
-	 * (the "License"); you may not use this file except in compliance with
-	 * the License.  You may obtain a copy of the License at
-	 *
-	 *     http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 * Unless required by applicable law or agreed to in writing, software
-	 * distributed under the License is distributed on an "AS IS" BASIS,
-	 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	 * See the License for the specific language governing permissions and
-	 * limitations under the License.
-	 */
 
 	private var testRunner: TestRunner = _
 
-	@Before def init(): Unit = {
+	@Before
+	def init(): Unit = {
 		testRunner = TestRunners.newTestRunner(classOf[StringComparisonProcessor])
 	}
 
-	@Test def testProcessor(): Unit = {
-		testRunner.setProperty(StringComparisonProcessor.FIRST, "abc")
-		testRunner.setProperty(StringComparisonProcessor.SECOND, "abc")
+	@Test
+	def equalStringsAreEqual(): Unit = {
+		val first = "abc"
+		val second = "abc"
 
-		testRunner.enqueue(new MockFlowFile(31323L))
-		testRunner.run()
+		val result = createAndTest(first, second)
 
-		val flows = testRunner.getFlowFilesForRelationship(StringComparisonProcessor.REL_SUCCESS)
-
-		flows.forEach(ff => {
-			StringComparisonProcessor.onTrigger
-		})
+		assert(result._1.size == 1)
+		assert(result._2.isEmpty)
 	}
 
+	@Test
+	def unequalStringsAreUnequal(): Unit = {
+		val first = "abc"
+		val second = "bca"
+
+		val result = createAndTest(first, second)
+
+		assert(result._1.isEmpty)
+		assert(result._2.nonEmpty)
+	}
+
+	@Test
+	def bomStripped(): Unit = {
+		val first = "abc"
+		val second = "abc"  + "\uFEFF"
+
+		val result = createAndTest(first, second)
+
+		assert(result._1.nonEmpty)
+		assert(result._2.isEmpty)
+	}
+
+	@Test
+	def bomStrippedAtMiddle(): Unit = {
+		val first = "abc"
+		val second = "abc".patch(1, "\uFEFF", 0)
+
+		val result = createAndTest(first, second)
+
+		assert(result._1.nonEmpty)
+		assert(result._2.isEmpty)
+	}
+
+	@Test
+	def whitespaceRemoved(): Unit = {
+		val first = "abc"
+		val second = "abc   "
+
+		val result = createAndTest(first, second)
+
+		assert(result._1.nonEmpty)
+		assert(result._2.isEmpty)
+	}
+
+	@Test
+	def whiteSpaceRemoved2(): Unit = {
+		val first = "    abc "
+		val second = "   abc   "
+
+		val result = createAndTest(first, second)
+
+		assert(result._1.nonEmpty)
+		assert(result._2.isEmpty)
+	}
+
+	@Test
+	def spaceInMiddleNotRemoved(): Unit = {
+		val first = "abc"
+		val second = "a bc"
+
+		val result = createAndTest(first, second)
+
+		assert(result._1.isEmpty)
+		assert(result._2.nonEmpty)
+	}
+
+	@Test
+	def whitespaceAndBom(): Unit = {
+		val first = "abc"
+		val second = " abc" + "\uFEFF"
+
+		val result = createAndTest(first, second)
+
+		assert(result._1.nonEmpty)
+		assert(result._2.isEmpty)
+	}
+
+	@Test
+	def whitespaceAndBom2(): Unit = {
+		val first = " abc   "
+		val second = " abc" + "\uFEFF"
+
+		val result = createAndTest(first, second)
+
+		assert(result._1.nonEmpty)
+		assert(result._2.isEmpty)
+	}
+
+	@Test
+	def whitespaceAndBom3(): Unit = {
+		val first = " abc   "
+		val second = " abc" + "\uFEFF"
+
+		val result = createAndTest(first, second)
+
+		assert(result._1.nonEmpty)
+		assert(result._2.isEmpty)
+	}
+
+	// Note that we remove special characters then trim.
+	@Test
+	def whitespaceAndBom4(): Unit = {
+		val first = " abc"
+		val second = " abc " + "\uFEFF"
+
+		val result = createAndTest(first, second)
+
+		assert(result._1.nonEmpty)
+		assert(result._2.isEmpty)
+	}
+
+
+	def createAndTest(first: String, second: String): (mutable.Buffer[MockFlowFile], mutable.Buffer[MockFlowFile]) = {
+		testRunner.setProperty(StringComparisonProcessor.FIRST, first)
+		testRunner.setProperty(StringComparisonProcessor.SECOND, second)
+
+		testRunner.enqueue(new MockFlowFile((first + second).hashCode))
+		testRunner.run()
+
+		val succeededFlows = testRunner.getFlowFilesForRelationship(StringComparisonProcessor.REL_SUCCESS)
+		val failedFlows = testRunner.getFlowFilesForRelationship(StringComparisonProcessor.REL_FAILURE)
+
+		(succeededFlows.asScala, failedFlows.asScala)
+	}
 }

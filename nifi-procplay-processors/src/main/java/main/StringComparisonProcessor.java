@@ -34,6 +34,10 @@ import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.util.StandardValidators;
 
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -134,7 +138,11 @@ public class StringComparisonProcessor extends AbstractProcessor {
     }
 
     private String cleanString(String str) {
-        return str.toLowerCase().trim().replace("\uFEFF", "");
+
+        CharBuffer utf8 = StandardCharsets.UTF_8.decode(StandardCharsets.UTF_8.encode(str));
+
+        // Remove BOM markers from saved files on Windows.
+        return utf8.toString().replace("\uFEFF", "").trim();
     }
 
 }
