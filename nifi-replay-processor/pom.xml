@@ -19,10 +19,10 @@
     <parent>
         <groupId>com.kennyaden</groupId>
         <artifactId>proc</artifactId>
-        <version>1.0-SNAPSHOT</version>
+        <version>0.1</version>
     </parent>
 
-    <artifactId>nifi-procplay-processors</artifactId>
+    <artifactId>nifi-string-comparison-processor</artifactId>
     <packaging>jar</packaging>
 
     <dependencies>
